@@ -1,0 +1,222 @@
+use std::{collections::HashSet, slice::Iter};
+
+enum Token {
+    Keyword(String),
+    Verb(String),
+    Whitespace(String),
+    Special(String),
+}
+
+fn make_norse(word: String) -> String {
+    let mut out = "".to_string();
+    for ch in word.chars() {
+        out.push(match ch {
+            'a' => '\u{16a8}',
+            'b' => '\u{16d3}',
+            'c' => '\u{16cd}',
+            'd' => '\u{16d1}',
+            'e' => '\u{16c2}',
+            'f' => '\u{16a0}',
+            'g' => '\u{16b5}',
+            'h' => '\u{16bb}',
+            'i' => '\u{16c1}',
+            'j' => '\u{16c3}',
+            'k' => '\u{16b4}',
+            'l' => '\u{16da}',
+            'm' => '\u{16d7}',
+            'n' => '\u{16bf}',
+            'o' => '\u{16df}',
+            'p' => '\u{16c8}',
+            'q' => '\u{16e9}',
+            'r' => '\u{16b1}',
+            's' => '\u{16ca}',
+            't' => '\u{16cf}',
+            'u' => '\u{16a2}',
+            'v' => '\u{16a1}',
+            'w' => '\u{16b9}',
+            'x' => '\u{16ea}',
+            'y' => '\u{16a3}',
+            'z' => '\u{16ce}',
+            x => x,
+        });
+    }
+
+    out
+}
+
+fn tokenize_program(program: String) -> Vec<Token> {
+    let reserved: HashSet<&str> = HashSet::from([
+        "class",
+        "interface",
+        "enum",
+        "public",
+        "private",
+        "protected",
+        "abstract",
+        "static",
+        "this",
+        "extends",
+        "Override",
+        "super",
+        "new",
+        "import",
+        "assert",
+        "package",
+        "throws",
+        "throw",
+        "try",
+        "catch",
+        "if",
+        "else",
+        "for",
+        "while",
+        "return",
+        "instanceof",
+        "final",
+        "void",
+        "int",
+        "long",
+        "char",
+        "float",
+        "double",
+        "boolean",
+        "true",
+        "false",
+        "break",
+    ]);
+    let word_end = HashSet::from([
+        '.', ',', '(', ')', '<', '@', '>', '[', ']', '{', '}', '/', '+', '-', '*', '%', '&', '=',
+        '?', ':', ';',
+    ]);
+
+    let mut tokens = vec![];
+
+    let mut is_whitespace = false;
+    let mut current = "".to_string();
+
+    for ch in program.chars() {
+        if is_whitespace && matches!(ch, ' ' | '\t' | '\n') {
+            current.push(ch);
+        } else if is_whitespace {
+            tokens.push(Token::Whitespace(current));
+            if word_end.contains(&ch) {
+                current = "".to_string();
+                tokens.push(Token::Special(ch.to_string()));
+            } else {
+                current = ch.to_string();
+            }
+            is_whitespace = false;
+        } else if matches!(ch, ' ' | '\t' | '\n') {
+            if reserved.contains(&current.as_str()) {
+                tokens.push(Token::Keyword(current));
+            } else {
+                tokens.push(Token::Verb(current));
+            }
+            current = ch.to_string();
+            is_whitespace = true;
+        } else if word_end.contains(&ch) {
+            tokens.push(if reserved.contains(&current.as_str()) {
+                Token::Keyword(current)
+            } else {
+                Token::Verb(current)
+            });
+            tokens.push(Token::Special(ch.to_string()));
+            current = "".to_string();
+        } else {
+            current.push(ch);
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.push(
+            if matches!(current.chars().nth(0).unwrap(), ' ' | '\t' | '\n') {
+                Token::Whitespace(current)
+            } else {
+                Token::Verb(current)
+                // TODO not exhaustive lol
+            },
+        );
+    }
+
+    tokens
+}
+
+macro_rules! token_content {
+    ($a:expr) => {{
+        let tmp = $a;
+        match tmp {
+            Token::Special(c) => c,
+            Token::Verb(c) => c,
+            Token::Whitespace(c) => c,
+            Token::Keyword(c) => c,
+        }
+    }};
+}
+
+fn skip_till_end(iterator: &mut Iter<Token>) -> String {
+    let mut out = "".to_string();
+
+    let tok = iterator.next().unwrap();
+    if let Token::Special(x) = tok {
+        if x == "." {
+            return ".".to_string();
+        }
+    }
+    let mut was_whitespace = false;
+    while let Some(tok) = iterator.next() {
+        out += token_content!(tok).as_str();
+        match tok {
+            Token::Whitespace(_) => {
+                was_whitespace = true;
+            }
+            Token::Verb(_) | Token::Keyword(_) => {
+                if was_whitespace {
+                    return out;
+                }
+            }
+            Token::Special(content) => {
+                if content == "." {
+                    was_whitespace = false;
+                } else {
+                    return out;
+                }
+            }
+        }
+    }
+    out
+}
+
+fn translate_program(program: String, verb_keep: HashSet<&str>) -> (String, Option<String>) {
+    let mut new_program = String::new();
+
+    let mut prog = tokenize_program(program);
+    let mut program = prog.iter();
+    let mut classname = None;
+
+    while let Some(token) = program.next() {
+        match token {
+            Token::Whitespace(whitespace) => new_program += whitespace.as_str(),
+            Token::Keyword(keyword) => {
+                new_program += keyword.as_str();
+            }
+            Token::Verb(verb) => {
+                new_program += 
+                if verb_keep.contains(verb.as_str()) {
+                    verb
+                } else {
+                    &make_norse(verb.to_owned())
+                }
+                new_program += skip_till_end(&mut program).as_str();
+            }
+            Token::Special(special) => {
+                new_program += special.as_str();
+            }
+        }
+    }
+
+    (new_program, classname)
+}
+
+fn main() {
+    println!("Hello, world!");
+}
