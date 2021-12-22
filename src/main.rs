@@ -20,32 +20,32 @@ fn make_norse(word: String) -> String {
     let mut out = "".to_string();
     for ch in word.to_lowercase().chars() {
         out.push(match ch {
-            'a' => '\u{16a8}',
-            'b' => '\u{16d3}',
-            'c' => '\u{16cd}',
-            'd' => '\u{16d1}',
-            'e' => '\u{16c2}',
-            'f' => '\u{16a0}',
-            'g' => '\u{16b5}',
-            'h' => '\u{16bb}',
-            'i' => '\u{16c1}',
-            'j' => '\u{16c3}',
-            'k' => '\u{16b4}',
-            'l' => '\u{16da}',
-            'm' => '\u{16d7}',
-            'n' => '\u{16bf}',
-            'o' => '\u{16df}',
-            'p' => '\u{16c8}',
-            'q' => '\u{16e9}',
-            'r' => '\u{16b1}',
-            's' => '\u{16ca}',
-            't' => '\u{16cf}',
-            'u' => '\u{16a2}',
-            'v' => '\u{16a1}',
-            'w' => '\u{16b9}',
-            'x' => '\u{16ea}',
-            'y' => '\u{16a3}',
-            'z' => '\u{16ce}',
+            'a' => '\u{16a8}', // ᚨ
+            'b' => '\u{16d3}', // ᛒ
+            'c' => '\u{16cd}', // -
+            'd' => '\u{16d1}', // ᛞ
+            'e' => '\u{16c2}', // ᛖ
+            'f' => '\u{16a0}', // ᚠ
+            'g' => '\u{16b5}', // ᚷ
+            'h' => '\u{16bb}', // ᚺ
+            'i' => '\u{16c1}', // ᛁ
+            'j' => '\u{16c3}', // ᛃ
+            'k' => '\u{16b4}', // ᚲ
+            'l' => '\u{16da}', // ᛚ
+            'm' => '\u{16d7}', // ᛗ
+            'n' => '\u{16bf}', // ᚾ
+            'o' => '\u{16df}', // ᛟ
+            'p' => '\u{16c8}', // ᛈ
+            'q' => '\u{16e9}', // -
+            'r' => '\u{16b1}', // ᚱ
+            's' => '\u{16ca}', // ᛊ
+            't' => '\u{16cf}', // ᛏ
+            'u' => '\u{16a2}', // ᚢ
+            'v' => '\u{16a1}', // -
+            'w' => '\u{16b9}', // ᚹ
+            'x' => '\u{16ea}', // -
+            'y' => '\u{16a3}', // -
+            'z' => '\u{16ce}', // ᛉ
             x => x,
         });
     }
@@ -309,7 +309,16 @@ fn main() {
                 .value_name("DIRECTORY")
                 .help("sets the directory where to place the new java file. If not set, prints to stdout")
                 .required(false)
-    )
+        )
+        .arg(
+            Arg::with_name("keep")
+                .short("k")
+                .takes_value(true)
+                .value_name("KEEP")
+                .help("adds keywords to keep when translating would break stuff (e.g. System)")
+                .multiple(true)
+
+        )
         .get_matches();
 
     let mut buffer = String::new();
@@ -320,7 +329,7 @@ fn main() {
             .read_to_string(&mut buffer)
             .unwrap_or_else(|err| panic!("{}", err));
     }
-    let verb_keep = HashSet::from([
+    let mut verb_keep = HashSet::from([
         "String",
         "System",
         "Double",
@@ -330,6 +339,12 @@ fn main() {
         "Exception",
         "Math",
     ]);
+    let keeps = args.values_of("keep");
+    if let Some(keeps) = keeps {
+        for keep in keeps {
+            verb_keep.insert(keep);
+        }
+    }
     let program = translate_program(buffer, verb_keep);
     if let Some(dir) = args.value_of("output") {
         let mut f = File::create(Path::new(dir).join(format!("{}.java", program.1.unwrap())))
